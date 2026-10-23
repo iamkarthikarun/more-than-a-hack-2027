@@ -1,0 +1,36 @@
+[project]
+name = "mtah-possession"
+version = "0.1.0"
+description = "More Than A Hack 2027: possession spells from tracking data"
+requires-python = "==3.12.*"
+# Top-level libraries pinned to the versions this work was developed and tested with.
+dependencies = [
+    "jupyterlab==4.6.4",
+    "kloppy==3.19.1",
+    "matplotlib==3.11.2",
+    "mplsoccer==1.8.1",
+    "numpy==2.5.4",
+    "opencv-python-headless==5.0.0.93",
+    "pandas==3.1.0",
+    "plotly==7.1.0",
+    "polars==2.0.0",
+    "pyarrow==26.0.0",
+    "scikit-learn==1.9.1",
+    "scipy==1.18.1",
+    "seaborn==0.13.2",
+    "supervision==0.31.1",
+    "torch==2.14.1",
+    "torchvision==0.29.1",
+    "tqdm==4.70.1",
+    "ultralytics==8.4.184",
+]
+
+[tool.uv]
+# macOS (Apple silicon) and Linux/WSL2 on x86_64. On Linux, PyPI's torch is the CUDA build.
+environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+# ultralytics and supervision pull in opencv-python, which needs libGL and fails on headless
+# Linux/WSL2. The headless build above is a drop-in replacement for everything we use.
+override-dependencies = ["opencv-python ; sys_platform == 'never'"]
