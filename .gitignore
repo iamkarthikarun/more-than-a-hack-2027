@@ -66,5 +66,7 @@ env/
 # -- local environment and derived outputs ----------------------------------------------------
 # uv.lock is not committed: a lock made behind a corporate package mirror records its URLs.
 uv.lock
-# Plots and clips are built from the gated tracking data and must not be published.
-analysis/figures/
+# Plots and clips are built from the gated tracking data and must not be published,
+# apart from the one example clip tracked below.
+analysis/figures/*
+!analysis/figures/clip.gif

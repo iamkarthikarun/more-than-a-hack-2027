@@ -32,6 +32,8 @@ uv run python analysis/overview_plot.py    # coverage overview -> analysis/figur
 uv run python analysis/make_gif.py         # 24 s animated clip -> analysis/figures/clip.gif
 ```
 
+![24 s of play: Barcelona (red), Athletic (blue), ball (yellow)](figures/clip.gif)
+
 `analysis/tracking.py` parses the tracking file once and caches it in `data/_cache/`.
-Everything in `data/` and `analysis/figures/` is git-ignored on purpose: RULES.md forbids
-publishing the data or anything that reconstructs it.
+Everything in `data/` and `analysis/figures/` is git-ignored on purpose, except the example
+`clip.gif` above: RULES.md forbids publishing the data or anything that reconstructs it.
