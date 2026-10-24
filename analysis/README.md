@@ -141,3 +141,32 @@ ball gaps would have to close.
 
 Limits: two matches, DFL's labels (finer than the organisers'), and a simulated mask. The held-out
 gain is large and consistent across both matches, but it is not a score on the real match.
+
+## Event log of the provided match
+
+A third-party event log of this match (Kaggle, `2445027 Barcelona-Athletic Club.xlsx`, uploader and
+licence unknown) is used with the organisers' permission (confirmed by email on 2026-10-24; they also
+said submissions are evaluated on other, unreleased matches, so nothing may be tuned to this one). It is
+not in git: put it at `data/external/kaggle/`, which `data/*` in `.gitignore` excludes.
+
+- `analysis/events.py` reads it with the standard library only. `analysis/pseudo_gt.py` turns it into
+  H/A/D frame labels with rules written beforehand from CHALLENGE.md: a stoppage event makes the ball
+  dead, a restart event makes it alive for the restarting team, and only controlled actions move
+  possession. It is a proxy, not the organisers' ground truth (which comes from corrected tracking).
+- **Alignment:** event wall time maps to video time as a pure shift per half, set by the kick-off
+  anchors in `games.py` (the two halves differ by 0.15 s). Event times are only good to about a second,
+  and the real ball is too often hidden to refine them from kicks.
+- **Check against the public 5 minutes** (labels meaning what we think, not tuning): 89% of frames
+  agree, 93% on dead/alive, 94.7% on the team when both say alive; shifting the events by 2 s in either
+  direction makes it worse. 14 possessions against the public 17.
+- `analysis/real_eval.py` scores methods on the real tracking against it (202 possessions, full match).
+  The shipped baseline gets spellF1 0.230 (published floor on the real ground truth: 0.2433), so the
+  scale is right. Hold-the-last-owner gets 0.358 to 0.380 with settings chosen on DFL only.
+  `min_spell` peaks near 75 frames (0.380) and is flat from 50 to 125; it drops to 0.265 at 10.
+
+**Where the ball goes missing, on the real tracking** (hidden share of frames by event-derived label):
+Barcelona in possession 7.0%, Athletic in possession 22.1%, dead ball 71.2%. About 80% of all hidden
+frames are dead-ball frames. The simulated masks in `degrade.py` are far more uniform (about 36%, 35%
+and 56%), so they are pessimistic about live play and too weak on the dead-ball link. Hidden-ball
+duration, and where the ball was last seen, are therefore strong dead-ball evidence that the DFL
+simulation does not yet reproduce.
