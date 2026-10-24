@@ -28,6 +28,17 @@ import possession_metrics as pm  # noqa: E402
 GAP = 100  # frames of X between the halves, so the scorer sees two separate runs
 CODE = {"H": pm.H, "A": pm.A, "D": pm.D, "X": pm.X}
 
+# The seven open matches. Each match's hidden-ball gap pattern is the provided match's pattern rolled
+# by ROLL frames times the match's index here, so a match scores the same whichever subset is run.
+ALL_MATCHES = ("DFL-MAT-J03WMX", "DFL-MAT-J03WN1", "DFL-MAT-J03WOH", "DFL-MAT-J03WOY",
+               "DFL-MAT-J03WPY", "DFL-MAT-J03WQQ", "DFL-MAT-J03WR9")
+ROLL = 20000
+
+
+def downloaded(match_id):
+    return any(f.startswith("DFL_04_03_positions_raw_observed") and match_id in f
+               for f in os.listdir(dfl.DFL_DIR))
+
 
 def nearest_team(half, ball_visible):
     """Team code (HOME/AWAY/NOBODY) of the player nearest the ball on each frame."""
@@ -57,12 +68,14 @@ def encode(labels):
     return np.array([CODE[c] for c in labels], dtype=np.int8)
 
 
-def run(matches=("DFL-MAT-J03WOH", "DFL-MAT-J03WN1")):
-    """Score each match separately; hidden-ball gap patterns are rolled so matches differ."""
+def run(matches=None):
+    """Score each match separately. Default: every open match that is downloaded."""
+    if matches is None:
+        matches = [m for m in ALL_MATCHES if downloaded(m)]
     data = []
-    for k, mid in enumerate(matches):
+    for mid in matches:
         halves = list(dfl.load(mid).values())
-        data.append((mid, halves, encode(assemble([h.labels() for h in halves])), k))
+        data.append((mid, halves, encode(assemble([h.labels() for h in halves])), ALL_MATCHES.index(mid)))
     patterns = provided_visibility()
     windows = (0, 25, 50, 125, 250)
 
@@ -72,7 +85,7 @@ def run(matches=("DFL-MAT-J03WOH", "DFL-MAT-J03WN1")):
         scores = {w: [] for w in windows}
         spells = {w: [] for w in windows}
         for mid, halves, gt, k in data:
-            vis = [np.roll(p, 20000 * k)[:h.n] if masked else np.ones(h.n, bool)
+            vis = [np.roll(p, ROLL * k)[:h.n] if masked else np.ones(h.n, bool)
                    for h, p in zip(halves, patterns)]
             codes = [nearest_team(h, v) for h, v in zip(halves, vis)]
             for w in windows:

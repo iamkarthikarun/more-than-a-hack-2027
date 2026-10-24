@@ -54,10 +54,16 @@ ball-status labels the provided match lacks. `fetch_dfl.py` downloads them into
 with byte-identical copies. The positions file is 350-420 MB per match.
 
 ```bash
-uv run python analysis/fetch_dfl.py                  # the two matches used so far (~740 MB)
+uv run python analysis/fetch_dfl.py                  # two matches (~740 MB); name others to add them
 uv run python analysis/fetch_dfl.py --list           # all 7 matches and their sizes
 uv run python analysis/fetch_dfl.py --verify-only    # check what is already on disk
-uv run python analysis/dfl_baseline.py               # nearest-player baseline, scored per match
+uv run python analysis/dfl_baseline.py               # nearest-player baseline on every downloaded match
 ```
 
-Matches used so far: `DFL-MAT-J03WOH` and `DFL-MAT-J03WN1`.
+A fresh machine needs the download step above. Each match scores the same whichever subset is
+downloaded, because its hidden-ball gap pattern is fixed per match.
+
+Reference, spellF1 with the ball hidden at the +-50 frame window (from a clean-clone run on a second
+machine, with J03WN1 and J03WOH also reproduced exactly on the first):
+`J03WMX 0.232, J03WN1 0.207, J03WOH 0.220, J03WOY 0.174, J03WPY 0.225, J03WQQ 0.241, J03WR9 0.188`,
+mean 0.212.
