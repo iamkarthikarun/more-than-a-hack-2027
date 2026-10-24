@@ -216,3 +216,34 @@ An event maps to exactly one frame; a frame maps to zero or several events (2,90
 column repeats, so identify an event by its Excel row or its `Uuid`.
 
 Note that the graded 1st half runs 78 s past the 1st-half whistle in the event log (59:08 against 1:00:26).
+
+## Names used in this project
+
+- **Official**: the organisers' data (tactical tracking, homography, Smart Tagging, public ground truth).
+- **Kaggle**: the third-party event log of the provided match (`2445027 Barcelona-Athletic Club.xlsx`).
+- **Kaggle-labels**: the H/A/D frame labels derived from Kaggle by `analysis/pseudo_gt.py`.
+
+## What Kaggle says about the first half (analysis only, first half only)
+
+`uv run python analysis/kaggle_first_half.py possession | dead | gaps`. The second half is deliberately not
+read. The full gap table is written to `data/_cache/` (git-ignored: it is derived from the data).
+
+- **Possession.** Of 1,488 events, those that carry possession are Control (708), Pass (363), Ball
+  recovery, Chipped pass, Take on, Launch, Cross, throw-ins, goalkeeper actions and shots. 100 spells
+  (Barcelona 52, Athletic 48): median 12.4 s (10th to 90th percentile 2.4 to 39.9 s), median 8 controlled
+  actions and 2 passes. 59 start with a turnover while play was live (24 of them a Ball recovery), 41 after a
+  restart; 59 end in a turnover, 41 in a stoppage. 96 touches by the team without the ball (Challenge,
+  Header, Tackle, Aerial, Clearance, Blocked Pass, Interception) do not change possession.
+- **Dead ball.** 41 stoppages, 44% of the half: free kick for a foul 11 (median 29 s), throw-in 12 (9 s),
+  corner 8 (28 s), goal kick 5 (16 s), offside 2, plus one goal (121 s) and one penalty with VAR (249 s)
+  and one drinks break inside an offside (185 s). Every restart carries an explicit tag; none is inferred.
+- **Missing ball (Official), 69 gaps, 40.7% of the half, median 11.6 s.** Against Kaggle-labels: inside dead
+  ball 20 gaps (48.5% of hidden time), dead to live 15 (25.1%), inside live play 25 (12.0%, median 5.8 s,
+  Athletic 118 s against Barcelona 37 s), a stoppage inside the gap 5 (9.5%), live to dead 4 (4.9%); 83% of
+  hidden frames are dead. The ball is within 4 m of the pitch edge at the start of 39% of gaps (13% of all
+  visible-ball frames). Only 33% of gaps start within 2 s of a stoppage event and 24% end within 2 s of a
+  real restart: the ball disappears during a stoppage and comes back seconds after play restarts, not on
+  the whistle.
+- **Limits.** Kaggle times are good to about 1 s. A stoppage that Kaggle does not log (for example a 22 s gap
+  while the goalkeeper held the ball, ended by a "Drop of ball") is labelled live, so the live-play class
+  contains some unlogged dead time.

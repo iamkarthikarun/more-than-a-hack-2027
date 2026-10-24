@@ -53,6 +53,38 @@ def offsets(ev):
     return out
 
 
+def walk(e):
+    """The labelling rules applied to one half's events, in time order. Yields one dict per event:
+    the event row, the state before and after (alive, owner), what the rules did with it in `how`
+    ('restart', 'restart (penalty)', 'restart (fallback)', 'control', 'stop', combinations such as
+    'control+stop', or None when the event is ignored), `flip` when a live possession changed hands, and
+    `state`, the label that holds from this event until the next one."""
+    alive, owner, pen, stop_clock = False, None, False, -1e9
+    for _, r in e.iterrows():
+        n = r["name"]
+        alive0, owner0, how = alive, owner, None
+        if n == "Free kick (PEN)":
+            pen = True
+        tagged = _is_restart(r)
+        penalty = pen and n in SHOTS
+        fallback = n in CONTROL and r.clock - stop_clock > FALLBACK_S and n not in STOP
+        if (tagged or penalty or fallback) and not alive:
+            alive = True
+            how = "restart" if tagged else ("restart (penalty)" if penalty else "restart (fallback)")
+            pen = pen and n not in SHOTS
+            if r.team in ("H", "A"):
+                owner = r.team
+        elif alive and n in CONTROL and r.team in ("H", "A"):
+            owner = r.team
+            how = "control"
+        if n in STOP:
+            alive, stop_clock = False, r.clock
+            how = f"{how}+stop" if how else "stop"
+        yield {"row": r, "alive0": alive0, "owner0": owner0, "alive": alive, "owner": owner, "how": how,
+               "flip": bool(alive0 and alive and owner0 and owner != owner0),
+               "state": owner if alive and owner else "D"}
+
+
 def labels(shift_s=0.0, merged=False, ev=None):
     """'H' / 'A' / 'D' on the graded frames of both halves, 'X' elsewhere. shift_s moves every event in
     video time (used only to check the alignment against the public ground truth)."""
@@ -60,26 +92,10 @@ def labels(shift_s=0.0, merged=False, ev=None):
     off = offsets(ev)
     lab = np.full(N_FRAMES, "X", dtype="<U1")
     for (p, a, b) in games.half_video_blocks(games.GAME):
-        e = ev[ev.period == p]
-        alive, owner, pen, stop_clock = False, None, False, -1e9
         frames, states = [], []
-        for _, r in e.iterrows():
-            n = r["name"]
-            if n == "Free kick (PEN)":
-                pen = True
-            restart = _is_restart(r) or (pen and n in SHOTS) or (
-                n in CONTROL and r.clock - stop_clock > FALLBACK_S and n not in STOP)
-            if restart and not alive:
-                alive = True
-                pen = pen and n not in SHOTS
-                if r.team in ("H", "A"):
-                    owner = r.team
-            elif alive and n in CONTROL and r.team in ("H", "A"):
-                owner = r.team
-            if n in STOP:
-                alive, stop_clock = False, r.clock
-            frames.append(int(round((r.wall + off[p] + shift_s) * FPS)))
-            states.append(owner if alive and owner else "D")
+        for d in walk(ev[ev.period == p]):
+            frames.append(int(round((d["row"].wall + off[p] + shift_s) * FPS)))
+            states.append(d["state"])
         frames = np.array(frames)
         order = np.argsort(frames, kind="stable")
         frames, states = frames[order], [states[i] for i in order]
