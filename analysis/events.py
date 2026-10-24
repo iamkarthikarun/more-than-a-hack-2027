@@ -39,7 +39,7 @@ def read_sheets(path=DEFAULT_PATH):
     for sheet in ET.fromstring(z.read("xl/workbook.xml")).iter(_M + "sheet"):
         target = rels[sheet.get(_R + "id")].lstrip("/")
         root = ET.fromstring(z.read(target if target.startswith("xl/") else "xl/" + target))
-        rows = []
+        rows, rownums = [], []
         for row in root.iter(_M + "row"):
             cells = {}
             for c in row.findall(_M + "c"):
@@ -59,10 +59,13 @@ def read_sheets(path=DEFAULT_PATH):
                     val = int(f) if f.is_integer() else f
                 cells[_col(c.get("r"))] = val
             rows.append(cells)
+            rownums.append(int(row.get("r") or len(rows)))
         width = max((max(r) for r in rows if r), default=-1) + 1
         table = [[r.get(i) for i in range(width)] for r in rows]
         if table:
-            out[sheet.get("name")] = pd.DataFrame(table[1:], columns=[h if h is not None else "" for h in table[0]])
+            df = pd.DataFrame(table[1:], columns=[h if h is not None else "" for h in table[0]])
+            df["xlsx_row"] = rownums[1:]          # the row number you see in Excel (the header is row 1)
+            out[sheet.get("name")] = df
     return out
 
 
@@ -91,7 +94,8 @@ def load_events(path=DEFAULT_PATH):
     t1, e1 = edge("Start", "First"), edge("End", "Period=First")
     t2, e2 = edge("Start", "Second"), edge("End", "Period=Second")
     df["period"] = np.select([(df["wall"] >= t1) & (df["wall"] <= e1), (df["wall"] >= t2) & (df["wall"] <= e2)], [1, 2], 0)
-    return df[["name", "team", "Player", "extras", "clock", "wall", "period", "Id"]].rename(columns={"Player": "player"})
+    return df[["name", "team", "Player", "extras", "clock", "wall", "period", "Id", "Uuid", "xlsx_row"]].rename(
+        columns={"Player": "player"})
 
 
 if __name__ == "__main__":

@@ -5,7 +5,9 @@
     uv run python analysis/video_time.py clock 1 273.9        # 1st-half match clock 273.9 s
     uv run python analysis/video_time.py events "Goal kick"   # every such event with its timecode
     uv run python analysis/video_time.py around 18009 --seconds 8
-    uv run python analysis/video_time.py timeline             # where everything sits in the feed
+    uv run python analysis/video_time.py xref --frame 18009     # everything about one frame
+    uv run python analysis/video_time.py xref --event-row 2704  # start from the spreadsheet instead
+    uv run python analysis/video_time.py timeline               # kick-offs, whistles, graded blocks
 
 The tactical video is one continuous recording at 25 fps, from its first frame (frame 0, 00:00:00.000)
 through pre-match, both halves, drinks breaks, halftime and post-match. Frame i is at i / 25 seconds.
@@ -116,9 +118,80 @@ def timeline():
         print(f"  {frame_to_timecode(f)}  frame {f:6d}  {label}")
 
 
+def _official_panel(frame):
+    import numpy as np
+    import pandas as pd
+    import xml.etree.ElementTree as ET
+    from analysis import tracking
+    paths = games.asset_paths()
+    t, sec = tracking.load(), frame / FPS
+    b = t.ball[frame, :2] * np.array(tracking.PITCH, np.float32)
+    seen = ~np.isnan(t.xy[frame, :, 0])
+    ball = "not tracked on this frame" if np.isnan(b[0]) else f"({b[0]:.1f} m, {b[1]:.1f} m) along the length, across the width"
+    gt = pd.read_csv(os.path.join(ROOT, "evaluation", "gt", "BAR-ATH_possession_gt_public.csv")).label.values[frame]
+    lines = [
+        "OFFICIAL DATA",
+        f"  video frame = submission row = GT row : {frame}   (public-GT csv line {frame + 2}, header is line 1)",
+        f"  ATD frame_id                          : {frame + 1}   (line {frame + 1} of {os.path.basename(paths['atd_raw'])})",
+        f"  homography row                        : {frame}   (csv line {frame + 2} of {os.path.basename(paths['homography'])})",
+        f"  Smart Tagging second                  : {sec:.2f}",
+        f"  tracking on this frame                : ball {ball}; players tracked: Barcelona {int(seen[t.team == 'H'].sum())}, "
+        f"Athletic {int(seen[t.team == 'A'].sum())}",
+        f"  public ground truth                   : {gt if gt != 'X' else 'X (outside the public 5-minute window)'}",
+    ]
+    tags = []
+    for inst in ET.parse(paths["smart_tagging"]).getroot().iter("instance"):
+        s, e = float(inst.find("start").text), float(inst.find("end").text)
+        if s <= sec <= e:
+            lab = {x.find("group").text: x.find("text").text for x in inst.findall("label")}
+            tags.append(f"#{inst.find('ID').text} {inst.find('code').text} ({lab.get('Team', '?')}) {s:.1f}-{e:.1f}s")
+    lines.append(f"  Smart Tagging phases active           : {len(tags)}" + ("" if not tags else "  " + "; ".join(tags[:4]) + (" ..." if len(tags) > 4 else "")))
+    return lines
+
+
+def _proxy_panel(frame, window, mark_uuid=None):
+    from analysis import pseudo_gt
+    p = half_of(frame)
+    label = pseudo_gt.labels(0.0, False)[frame]
+    lines = ["PROXY (Kaggle event log)",
+             f"  match clock                           : " + (f"{frame / FPS - CLOCK_TO_VIDEO[p]:.1f} s, {p}{'st' if p == 1 else 'nd'} half" if p else "n/a (not inside a graded half)"),
+             f"  proxy label here                      : {label if label != 'X' else 'X (not inside a graded half)'}"]
+    ev = _events()
+    ev = ev[ev.period > 0].copy()
+    ev["frame"] = [_event_frame(r) for _, r in ev.iterrows()]
+    near = ev[(ev.frame - frame).abs() <= window * FPS]
+    lines.append(f"  events within +-{window:g} s of this frame  : {len(near)}   (Excel row / Uuid identify one; Id repeats)")
+    lines.append(f"    {'':1}{'xlsx row':>8} {'d(s)':>6} {'clock':>8} {'frame':>7}  {'team':4} {'event':20} {'Uuid':10} extras")
+    for _, r in near.iterrows():
+        mark = ">" if mark_uuid is not None and r.Uuid == mark_uuid else " "
+        lines.append(f"    {mark}{int(r.xlsx_row):>8} {(r.frame - frame) / FPS:+6.1f} {r.clock:7.1f}s {r.frame:7d}  {str(r.team):4} "
+                     f"{r['name'][:20]:20} {str(r.Uuid)[:10]:10} {r.extras[:40]}")
+    return lines
+
+
+def xref(frame, window=3.0, mark_uuid=None):
+    """One frame seen from all three sides: the official data, the tactical video, the event log."""
+    out = _official_panel(frame)
+    out += ["", "TACTICAL VIDEO",
+            f"  timecode (seek here)                  : {frame_to_timecode(frame)}   (= {frame} / 25 s; {where(frame)})",
+            ""]
+    return "\n".join(out + _proxy_panel(frame, window, mark_uuid))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
+    x = sub.add_parser("xref", help="show one frame in the official data, the video and the event log")
+    g = x.add_mutually_exclusive_group(required=True)
+    g.add_argument("--frame", type=int, help="video frame = submission row")
+    g.add_argument("--time", help="video timecode HH:MM:SS.mmm")
+    g.add_argument("--clock", nargs=2, metavar=("HALF", "SECONDS"), help="event-log match clock, e.g. 1 273.9")
+    g.add_argument("--atd-line", type=int, help="line number in the ATD .txt (= ATD frame_id)")
+    g.add_argument("--homography-line", type=int, help="line number in the homography csv (header is line 1)")
+    g.add_argument("--smart-tag", type=int, help="Smart Tagging instance ID (jumps to its start)")
+    g.add_argument("--event-row", type=int, help="row number in the Kaggle xlsx as shown in Excel")
+    g.add_argument("--event-uuid", help="Uuid of an event")
+    x.add_argument("--window", type=float, default=3.0, help="seconds either side to list events")
     sub.add_parser("frame").add_argument("frame", type=int)
     sub.add_parser("time").add_argument("timecode")
     c = sub.add_parser("clock"); c.add_argument("half", type=int, choices=(1, 2)); c.add_argument("seconds", type=float)
@@ -127,7 +200,33 @@ def main():
     sub.add_parser("timeline")
     args = ap.parse_args()
 
-    if args.cmd == "frame":
+    if args.cmd == "xref":
+        mark = None
+        if args.frame is not None:
+            frame = args.frame
+        elif args.time:
+            frame = seconds_to_frame(timecode_to_seconds(args.time))
+        elif args.clock:
+            frame = seconds_to_frame(float(args.clock[1]) + CLOCK_TO_VIDEO[int(args.clock[0])])
+        elif args.atd_line:
+            frame = args.atd_line - 1
+        elif args.homography_line:
+            frame = args.homography_line - 2
+        elif args.smart_tag:
+            import xml.etree.ElementTree as ET
+            hit = [i for i in ET.parse(games.asset_paths()["smart_tagging"]).getroot().iter("instance")
+                   if int(i.find("ID").text) == args.smart_tag]
+            if not hit:
+                sys.exit(f"no Smart Tagging instance with ID {args.smart_tag}")
+            frame = seconds_to_frame(float(hit[0].find("start").text))
+        else:
+            ev = _events()
+            hit = ev[ev.xlsx_row == args.event_row] if args.event_row else ev[ev.Uuid == args.event_uuid]
+            if not len(hit):
+                sys.exit("no such event")
+            frame, mark = _event_frame(hit.iloc[0]), hit.iloc[0].Uuid
+        print(xref(frame, args.window, mark))
+    elif args.cmd == "frame":
         print("\n".join(describe(args.frame)))
     elif args.cmd == "time":
         print("\n".join(describe(seconds_to_frame(timecode_to_seconds(args.timecode)))))

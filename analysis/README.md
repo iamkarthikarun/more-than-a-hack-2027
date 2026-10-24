@@ -198,6 +198,21 @@ uv run python analysis/video_time.py time 00:12:00.360      # timecode to frame
 uv run python analysis/video_time.py events "Goal kick"     # every such event with its timecode
 uv run python analysis/video_time.py around 18009 --seconds 8
 uv run python analysis/video_time.py timeline               # kick-offs, whistles, graded blocks
+uv run python analysis/video_time.py xref --frame 18009     # one frame in the official data, video and event log
 ```
+
+`xref` accepts any starting point and lands on the same frame:
+`--frame`, `--time 00:12:00.360`, `--clock 1 273.9`, `--atd-line`, `--homography-line`, `--smart-tag ID`,
+`--event-row N` (the row number Excel shows), `--event-uuid U`.
+
+| you have | official data | tactical video | event log (xlsx) |
+|---|---|---|---|
+| frame `i` | ATD `frame_id` `i+1` = line `i+1` of the ATD txt; homography and GT csv line `i+2`; Smart Tagging second `i/25` | `i/25` s as `HH:MM:SS.mmm` | match clock = `i/25 - 446.444` (1st half) or `i/25 - 1849.601` (2nd); look for events within about 1 s |
+| video time `T` s | `i = round(T*25)` | | match clock = `T - offset` |
+| event with clock `c` | `i = round((c + offset)*25)` | `i/25` s | |
+
+An event maps to exactly one frame; a frame maps to zero or several events (2,902 events against
+158,857 graded frames), so go the other way with a window. The xlsx is not in time order and its `Id`
+column repeats, so identify an event by its Excel row or its `Uuid`.
 
 Note that the graded 1st half runs 78 s past the 1st-half whistle in the event log (59:08 against 1:00:26).
