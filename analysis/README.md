@@ -288,3 +288,20 @@ what the labels mean; no rule was changed because of it.
   Kaggle restart event is logged.
 - Consequence: scoring against Kaggle-labels rewards control-based ownership and a long minimum spell; the
   Official truth keeps touch-based spells down to 0.8 s. Treat the 75-frame `min_spell` as unresolved.
+
+## Watching the tracking as video
+
+`uv run python analysis/make_video.py --list | --window N | --all --workers 6 | --start FRAME --seconds S`
+
+Real-time MP4s (1224x1028, H.264, ~15 MB per 10 minutes, about 2 minutes for all 12 windows) in
+`analysis/figures/videos/`, which is git-ignored with everything else frame-level. The windows tile the two
+graded blocks from their first frame; the 2nd-half block starts about 2 minutes before the 2nd-half kick-off.
+
+- Players carry their tracker slot number (1-24 Barcelona, 25-46 Athletic; slots are not people, and the bench
+  has slots too). A slot that stops being tracked leaves a ring that fades over 2 s. A slot that returns somewhere
+  it could not have run to (over 10 m/s plus 1 m during the gap) is joined to its old spot by a magenta line.
+- The ball has a 1 s trail. When it is not tracked a ring marks where it was last seen and the banner counts the
+  time; when it returns an orange line shows the distance covered while unseen.
+- The timeline under the pitch shows ball tracked, Kaggle-labels and (public window only) Official, with the
+  playhead, and the last three Kaggle events scroll in the footer. `--no-labels` hides them.
+- The pitch flips at half-time: Barcelona defend the left goal in the 1st half and the right goal in the 2nd.
