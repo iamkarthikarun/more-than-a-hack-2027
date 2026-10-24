@@ -205,9 +205,13 @@ def render(job):
 
     # Ask libx264 for near-lossless quality so the 0.36-scale slot numbers stay readable.
     os.environ.setdefault("OPENCV_FFMPEG_WRITER_OPTIONS", "crf;14|preset;veryfast")
-    vw = cv2.VideoWriter(out + ".part.mp4", cv2.VideoWriter_fourcc(*"avc1"), FPS, (W, H))
-    if not vw.isOpened():
-        raise RuntimeError("OpenCV cannot write H.264 here")
+    for codec in ("avc1", "mp4v"):   # Linux wheels often lack H.264; MPEG-4 plays in VLC and Windows players
+        vw = cv2.VideoWriter(out + ".part.mp4", cv2.VideoWriter_fourcc(*codec), FPS, (W, H))
+        if vw.isOpened():
+            break
+    else:
+        raise RuntimeError("OpenCV cannot write avc1 or mp4v here")
+    print(f"  {name}: encoding with {codec}", flush=True)
     ev_frames = events.frame.values if events is not None else None
     for f in range(start, end + 1):
         i = f - lo
@@ -266,7 +270,7 @@ def render(job):
         txt(img, f"Barcelona slots tracked {nh}", (12, 52), 0.55, mix(HOME, WHITE, .35))
         txt(img, f"Athletic {na}", (290, 52), 0.55, mix(AWAY, WHITE, .5))
         txt(img, "ball tracked" if bvis[f] else f"BALL NOT TRACKED  {hidden:.1f} s", (420, 52), 0.55, GREEN if bvis[f] else RED, 1)
-        if labels is not None:
+        if labels is not None or official is not None:
             for k, (nm, arr) in enumerate((("Kaggle-labels", labels), ("Official", official))):
                 v = arr[f] if arr is not None else "X"
                 s = f"{nm} {v if v != 'X' else '-'}"
