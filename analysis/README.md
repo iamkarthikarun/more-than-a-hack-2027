@@ -247,3 +247,26 @@ read. The full gap table is written to `data/_cache/` (git-ignored: it is derive
 - **Limits.** Kaggle times are good to about 1 s. A stoppage that Kaggle does not log (for example a 22 s gap
   while the goalkeeper held the ball, ended by a "Drop of ball") is labelled live, so the live-play class
   contains some unlogged dead time.
+
+## Kaggle-labels against the Official public window
+
+`uv run python analysis/kaggle_vs_official_window.py` (video 00:07:27 to 00:12:27, 17 possessions). A check of
+what the labels mean; no rule was changed because of it.
+
+- Frame by frame: all three classes agree on 89.1%, alive/dead on 93.0%, and the team on 94.7% of frames both
+  call alive. Recall of Official H, A, D is 90.0%, 83.7%, 96.7%; Kaggle-labels call 473 frames dead that
+  Official calls alive.
+- Possessions: 14 against Official's 17, spellF1 0.710; 13 of 17 Official possessions have a Kaggle spell with
+  IoU of at least 0.3. The four misses are three short ones (0.8, 1.3, 3.6 s) and a 7.4 s one inside an
+  offside stoppage.
+- Timing: Kaggle changes about a second before Official: median -0.9 s for team changes, -1.5 s when play
+  stops, -0.5 s when it restarts. All four Official dead stretches are found, but Kaggle's are 29% longer
+  overall (76 s against 59 s): they start 0.7 to 3.7 s earlier and end 0.5 to 1.4 s earlier, and in one
+  offside case Official restarts play 5.3 s before the free kick is logged.
+- Team disagreements of 0.5 s or more: 10 stretches of 0.6 to 2.1 s, all at contested moments (header,
+  flick-on, aerial duel, dispossession, interception).
+- Missing ball in the window (11.8% hidden): hidden frames by label are Official H 1% A 44% D 56%, against
+  Kaggle-labels H 1% A 44% D 55%, so the dead-ball and Athletic concentration of missing ball is confirmed by
+  Official's own labels. The two label sets put a gap in the same class for 3 of 6 gaps; the others differ
+  only in where the stoppage boundary falls. The window is the easy start of the match, so this does not
+  confirm the whole-half figure (83% dead).
