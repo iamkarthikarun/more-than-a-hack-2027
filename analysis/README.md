@@ -67,3 +67,44 @@ Reference, spellF1 with the ball hidden at the +-50 frame window (from a clean-c
 machine, with J03WN1 and J03WOH also reproduced exactly on the first):
 `J03WMX 0.232, J03WN1 0.207, J03WOH 0.220, J03WOY 0.174, J03WPY 0.225, J03WQQ 0.241, J03WR9 0.188`,
 mean 0.212.
+
+## Making DFL look like the provided match
+
+DFL is clean (ball always tracked, all 22 players, raw 1 cm-quantised positions); the provided tactical
+tracking is not. `analysis/degrade.py` learns the difference from the provided match's tracking alone
+(no labels) and applies it to DFL; `analysis/degrade_eval.py` fits it, checks the result and scores the
+baseline on it.
+
+```bash
+uv run python analysis/degrade_eval.py                                          # every downloaded match
+uv run python analysis/degrade_eval.py --matches DFL-MAT-J03WOH DFL-MAT-J03WN1  # exact subset
+```
+
+What was measured on the provided match:
+- **Ball:** hidden on 41% of in-play frames in ~150 gaps (median 10.7 s). It vanishes when it is
+  *slow* (median 2.0 m/s against 5.2), close to a player, or near a touchline (25% of onsets within
+  4 m of one, against 13%), not when it is fast. Only 149 onsets, so the covariate model is weak
+  (cross-half AUC 0.64 and 0.74); a constant-hazard control is kept next to it.
+- **Players:** a track ends mostly under occlusion (62% within 2 m of another player, against 12%),
+  at low speed or near a touchline (cross-half AUC ~0.87). All 11 of a team are tracked on only
+  ~55-60% of frames.
+- **Positions** are far smoother than DFL's raw ones (velocity autocorrelation 0.999 against 0.879),
+  so DFL is smoothed (Gaussian, 2 frames), not made noisier.
+- **Not modelled:** 2-4 m single-step ball jumps (0.19% of ball frames) and extra phantom tracks that
+  give a team a 12th or 13th player on ~5-8% of frames. The 3+ players-missing tail is under-produced
+  (about half of the provided 8-10%).
+
+Result, nearest-player baseline, spellF1 at the +-50 frame window, two matches (J03WOH, J03WN1):
+
+| ball condition | spellF1 |
+|---|---|
+| always visible, clean players | 0.292 |
+| hidden: provided gap pattern copied | 0.214 |
+| hidden: constant hazard, real gap lengths | 0.201 |
+| hidden: learned hazard, real gap lengths | 0.231 |
+| learned ball hazard + players dropped + smoothed | 0.225 |
+
+The masks agree within about 0.03, so the exact mask is not the main uncertainty. The learned hazard
+hides the ball less often at real possession changes (32%) than overall (42%), because it favours slow
+and dead-ball moments where "ball hidden means dead" happens to be right; the constant hazard is the
+pessimistic bound. These are simulated; the organisers' published full-match floor is 0.2433.
