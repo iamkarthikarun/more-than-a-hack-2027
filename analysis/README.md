@@ -47,12 +47,17 @@ Everything in `data/` and `analysis/figures/` is git-ignored on purpose, except 
 
 ## Other-match data (open DFL/Sportec, CC BY 4.0)
 
-`analysis/dfl.py` reads other matches from https://doi.org/10.6084/m9.figshare.28196177, which carry
-per-frame possession and ball-status labels the provided match lacks. Download the three files of
-a match (`matchinformation`, `events_raw`, `positions_raw_observed`) into `data/external/dfl/`;
-the positions file is 350-420 MB, so use ranged downloads if a corporate proxy stalls whole-file
-requests. Matches used so far: `DFL-MAT-J03WOH` and `DFL-MAT-J03WN1`.
+`analysis/dfl.py` reads other matches from https://doi.org/10.6084/m9.figshare.28196177 (CC BY 4.0,
+attribute the dataset paper in `analysis/fetch_dfl.py`), which carry per-frame possession and
+ball-status labels the provided match lacks. `fetch_dfl.py` downloads them into
+`data/external/dfl/` and checks every file against the publisher's MD5, so any machine ends up
+with byte-identical copies. The positions file is 350-420 MB per match.
 
 ```bash
-uv run python analysis/dfl_baseline.py     # nearest-player baseline, scored per DFL match
+uv run python analysis/fetch_dfl.py                  # the two matches used so far (~740 MB)
+uv run python analysis/fetch_dfl.py --list           # all 7 matches and their sizes
+uv run python analysis/fetch_dfl.py --verify-only    # check what is already on disk
+uv run python analysis/dfl_baseline.py               # nearest-player baseline, scored per match
 ```
+
+Matches used so far: `DFL-MAT-J03WOH` and `DFL-MAT-J03WN1`.
