@@ -108,3 +108,36 @@ The masks agree within about 0.03, so the exact mask is not the main uncertainty
 hides the ball less often at real possession changes (32%) than overall (42%), because it favours slow
 and dead-ball moments where "ball hidden means dead" happens to be right; the constant hazard is the
 pessimistic bound. These are simulated; the organisers' published full-match floor is 0.2433.
+
+## Hold the last owner
+
+`analysis/hold_owner.py` replaces "nearest player, and call it dead when there is no ball". The owner
+changes only on a frame where the ball is visible and a player is within `r_control` metres, and is
+held through gaps and flight. Dead ball needs evidence at a visible frame (ball outside the pitch, or
+hardly moving over 2 s), held through gaps. Runs shorter than `min_spell` / `min_dead` are merged away.
+`analysis/hold_owner_eval.py` scores it on degraded DFL, choosing settings on the other matches only.
+
+```bash
+uv run python analysis/hold_owner_eval.py --matches DFL-MAT-J03WOH DFL-MAT-J03WN1   # ~9 min
+```
+
+spellF1 on the held-out match, mean of two matches (tuned on the other one):
+
+| ball condition | nearest + vote | hold the last owner |
+|---|---|---|
+| clean ball | 0.292 | 0.552 |
+| constant hazard (pessimistic) | 0.186 | 0.348 |
+| learned hazard | 0.226 | 0.374 |
+
+Against labels with every spell under 3 s merged (a proxy for "controlled possession"): 0.345 to 0.660,
+0.207 to 0.392, 0.259 to 0.426. Chosen settings: `r_control` 0.75 to 1.0 m, dead state held without
+limit, `d_still` 1 to 2 m. **`min_spell` follows the label definition** (10 frames on DFL's labels, 75 on
+the merged ones), so it must not be tuned on DFL; it is the open question about the organisers' ground
+truth.
+
+What is still weak: with the ball hidden, dead/alive F1 is 0.75 to 0.83 (0.97 with a clean ball) and
+team accuracy on live frames 0.73 to 0.83 (0.87 clean). Both gaps are what player-only inference during
+ball gaps would have to close.
+
+Limits: two matches, DFL's labels (finer than the organisers'), and a simulated mask. The held-out
+gain is large and consistent across both matches, but it is not a score on the real match.
