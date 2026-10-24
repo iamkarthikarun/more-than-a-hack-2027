@@ -270,3 +270,21 @@ what the labels mean; no rule was changed because of it.
   Official's own labels. The two label sets put a gap in the same class for 3 of 6 gaps; the others differ
   only in where the stoppage boundary falls. The window is the easy start of the match, so this does not
   confirm the whole-half figure (83% dead).
+
+### Does Official follow the last touch or the last control?
+
+`uv run python analysis/touch_vs_control.py`, same window, analysis only (n is small; this is a hypothesis).
+
+- Official changes team after any deliberate touch, not only after control. Of 9 contested Kaggle events
+  (header, aerial, flick-on, interception, blocked pass, tackle, unsuccessful touch) with the other team
+  showing just before, 8 are followed by a flip to the toucher's team within 2 s (control-type events: 12 of 15).
+- The discriminating cut is a lone touch: a contested event with no control-type event by the same team in the
+  next 3 s. All 5 such cases flip (flick-on, interception, unsuccessful touch, aerial, header). The one miss is
+  a tackle that did not win the ball.
+- Kaggle-labels ignore these events by design, which explains why 7 of the 10 team disagreements start at
+  contested events and why Kaggle-labels have 14 spells to Official's 17.
+- In the tracking, the ball first moves again (7 m/s) at 12:15.0 after a goal kick that the keeper held, and
+  Official goes alive at 12:15.56, so Official appears to restart play when the ball starts moving, not when the
+  Kaggle restart event is logged.
+- Consequence: scoring against Kaggle-labels rewards control-based ownership and a long minimum spell; the
+  Official truth keeps touch-based spells down to 0.8 s. Treat the 75-frame `min_spell` as unresolved.
