@@ -31,7 +31,7 @@ N_FRAMES = 199319
 CONTROL = {"Control", "Pass", "Chipped pass", "Launch", "Cross", "Take on", "Throw in", "Goalkeeper throw",
            "GK kick from hands", "Goal kick", "Corner", "Goal", "Miss", "Miss NPGL", "Attempt saved",
            "Attempt blocked", "Post", "Collected Ball", "Catch", "Smother", "Ball recovery", "Offside Pass"}
-STOP = {"Out", "Free kick", "Corner", "Start delay", "Goal", "Offside Pass", "Free kick (PEN)"}
+STOP = {"Out", "Free kick", "Corner", "Start delay", "Goal", "Offside Pass", "Free kick (PEN)", "End"}
 SHOTS = {"Goal", "Miss", "Miss NPGL", "Attempt saved", "Attempt blocked", "Post", "Penalty faced"}
 MERGE_FRAMES = 75   # 3 s, the CHALLENGE.md proxy for controlled possession
 FALLBACK_S = 2.0    # a control event this long after a stoppage restarts play even without a restart tag

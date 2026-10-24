@@ -160,9 +160,9 @@ not in git: put it at `data/external/kaggle/`, which `data/*` in `.gitignore` ex
   agree, 93% on dead/alive, 94.7% on the team when both say alive; shifting the events by 2 s in either
   direction makes it worse. 14 possessions against the public 17.
 - `analysis/real_eval.py` scores methods on the real tracking against it (202 possessions, full match).
-  The shipped baseline gets spellF1 0.230 (published floor on the real ground truth: 0.2433), so the
-  scale is right. Hold-the-last-owner gets 0.358 to 0.380 with settings chosen on DFL only.
-  `min_spell` peaks near 75 frames (0.380) and is flat from 50 to 125; it drops to 0.265 at 10.
+  The shipped baseline gets spellF1 0.231 (published floor on the real ground truth: 0.2433), so the
+  scale is right. Hold-the-last-owner gets 0.362 to 0.383 with settings chosen on DFL only.
+  `min_spell` peaks near 75 frames (about 0.38) and is flat from 50 to 125; it drops to 0.27 at 10.
 
 **Where the ball goes missing, on the real tracking** (hidden share of frames by event-derived label):
 Barcelona in possession 7.0%, Athletic in possession 22.1%, dead ball 71.2%. About 80% of all hidden
@@ -170,3 +170,34 @@ frames are dead-ball frames. The simulated masks in `degrade.py` are far more un
 and 56%), so they are pessimistic about live play and too weak on the dead-ball link. Hidden-ball
 duration, and where the ball was last seen, are therefore strong dead-ball evidence that the DFL
 simulation does not yet reproduce.
+
+## Finding a frame or an event in the tactical video
+
+The tactical video is one continuous 25 fps recording, from its first frame to the last: pre-match, both
+halves, drinks breaks, halftime and post-match are all in it, so everything is measured from frame 0.
+
+| quantity | formula |
+|---|---|
+| video time of frame `i` | `i / 25` seconds (`ms = i * 40`), i.e. `HH:MM:SS.mmm` |
+| submission row / ATD `frame_id` | `i` / `i + 1` |
+| Smart Tagging second `s` | frame `round(s * 25)` |
+| event, 1st half | video seconds = match clock + 446.444 |
+| event, 2nd half | video seconds = match clock + 1849.601 (the clock restarts at 45:00) |
+| frame of an event | `round(video seconds * 25)` |
+
+The event log's match clock is an exact straight shift of wall time inside each half (zero spread over
+every event, drinks breaks included), and the two halves' offsets differ by only 0.15 s across the 68
+minutes of halftime, which confirms a single continuous clock. Event times are operator-logged and good
+to about +-1 s. Landmarks: 1st-half kick-off 00:07:27.440 (frame 11186), 2nd-half kick-off 01:15:49.640
+(frame 113741); both are the organisers' anchors, so seek to them to check your player has no start
+offset. `analysis/video_time.py` does all of this:
+
+```bash
+uv run python analysis/video_time.py frame 18009            # timecode, half, match clock
+uv run python analysis/video_time.py time 00:12:00.360      # timecode to frame
+uv run python analysis/video_time.py events "Goal kick"     # every such event with its timecode
+uv run python analysis/video_time.py around 18009 --seconds 8
+uv run python analysis/video_time.py timeline               # kick-offs, whistles, graded blocks
+```
+
+Note that the graded 1st half runs 78 s past the 1st-half whistle in the event log (59:08 against 1:00:26).
